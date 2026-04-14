@@ -955,6 +955,51 @@ credits: ${data.credits}`;
             }
         }
     </script>
+    <!-- AGENT ENTRY PORTAL -->
+<div style="margin-top:40px;padding:20px;border:1px solid #00ffcc;border-radius:10px;">
+  <h2>🚀 Start your agent</h2>
+
+  <button onclick="createFreeAgent()" style="padding:10px 20px;margin:5px;">
+    Create Free Agent
+  </button>
+
+  <button onclick="subscribeBasic()" style="padding:10px 20px;margin:5px;">
+    Buy Basic Plan ($9)
+  </button>
+
+  <button onclick="subscribeGrowth()" style="padding:10px 20px;margin:5px;">
+    Buy Growth Plan ($29)
+  </button>
+
+  <button onclick="subscribeDominator()" style="padding:10px 20px;margin:5px;">
+    Buy Dominator Plan ($99)
+  </button>
+
+  <pre id="agentResult" style="margin-top:20px;"></pre>
+</div>
+
+<script>
+async function createFreeAgent() {
+  const res = await fetch("https://SEU_PROJECT.supabase.co/functions/v1/agent-onboarding-start", {
+    method: "POST"
+  });
+
+  const data = await res.json();
+  document.getElementById("agentResult").innerText = JSON.stringify(data, null, 2);
+}
+
+function subscribeBasic() {
+  window.location.href = "SEU_LINK_STRIPE_BASIC";
+}
+
+function subscribeGrowth() {
+  window.location.href = "SEU_LINK_STRIPE_GROWTH";
+}
+
+function subscribeDominator() {
+  window.location.href = "SEU_LINK_STRIPE_DOMINATOR";
+}
+</script>
 </body>
 </html>
 
