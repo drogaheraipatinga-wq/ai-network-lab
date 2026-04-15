@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Network - Ativar Economia Automática</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .box {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 12px;
+      width: 400px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      background: #22c55e;
+      border: none;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #card-element {
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <h2>Ativar Economia Automática</h2>
+
+  <label>Agent ID</label>
+  <input id="agent_id" style="width:100%" />
+
+  <button onclick="startSetup()">Iniciar</button>
+
+  <div id="card-section" style="display:none">
+    <div id="card-element"></div>
+    <button onclick="confirmCard()">Confirmar Cartão</button>
+  </div>
+
+  <p id="status"></p>
+</div>
+
+<script>
+const stripe = Stripe("pk_live_51SyDRBLFZaThHtbwrMmrPFpLmKs44lLEddsGLkwzxlJBtsDA6M4PbVbG9bdyqBc33E9NPcBo5EPqJhwQ7guCfAAL00zxGiy0eN");
+
+let elements;
+let card;
+let clientSecret;
+let agentId;
+
+async function startSetup() {
+  agentId = document.getElementById("agent_id").value;
+
+  const res = await fetch("https://vxbujgzswbakdjnfgetk.supabase.co/functions/v1/create-setup-intent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ agent_id: agentId })
+  });
+
+  const data = await res.json();
+  clientSecret = data.client_secret;
+
+  elements = stripe.elements();
+  card = elements.create("card");
+  card.mount("#card-element");
+
+  document.getElementById("card-section").style.display = "block";
+}
+
+async function confirmCard() {
+  const result = await stripe.confirmCardSetup(clientSecret, {
+    payment_method: {
+      card: card
+    }
+  });
+
+  if (result.error) {
+    document.getElementById("status").innerText = result.error.message;
+    return;
+  }
+
+  const paymentMethod = result.setupIntent.payment_method;
+
+  // salvar no backend
+  await fetch("https://vxbujgzswbakdjnfgetk.supabase.co/functions/v1/confirm-autotopup-payment-method", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      agent_id: agentId,
+      stripe_customer_id: result.setupIntent.customer,
+      stripe_payment_method_id: paymentMethod
+    })
+  });
+
+  document.getElementById("status").innerText = "✅ Economia automática ativada!";
+}
+</script>
+
+</body>
+</html>
