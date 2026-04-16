@@ -162,9 +162,9 @@
       statusEl.className = type;
     }
 
-    function setLoading(button, isLoading, loadingText, defaultText) {
-      button.disabled = isLoading;
-      button.innerText = isLoading ? loadingText : defaultText;
+    function setButtonState(button, text, disabled) {
+      button.innerText = text;
+      button.disabled = disabled;
     }
 
     async function startSetup() {
@@ -192,7 +192,7 @@
           return;
         }
 
-        setLoading(startBtn, true, "Starting...", "Start");
+        setButtonState(startBtn, "Starting...", true);
         setStatus("Creating secure setup session...", "muted");
 
         const res = await fetch(
@@ -240,7 +240,9 @@
       } catch (error) {
         setStatus(error?.message || "Unexpected error while starting setup.", "error");
       } finally {
-        setLoading(startBtn, false, "Starting...", "Start");
+        if (!setupCompleted) {
+          setButtonState(startBtn, "Start", false);
+        }
       }
     }
 
@@ -261,7 +263,7 @@
           return;
         }
 
-        setLoading(confirmBtn, true, "Confirming...", "Confirm Card");
+        setButtonState(confirmBtn, "Confirming...", true);
         setStatus("Confirming card authorization...", "muted");
 
         const result = await stripe.confirmCardSetup(clientSecret, {
@@ -305,6 +307,8 @@
         setupCompleted = true;
         startBtn.disabled = true;
         confirmBtn.disabled = true;
+        startBtn.innerText = "Started";
+        confirmBtn.innerText = "Enabled";
         agentIdInput.readOnly = true;
 
         setStatus(
@@ -313,9 +317,8 @@
         );
       } catch (error) {
         setStatus(error?.message || "Unexpected error while confirming card.", "error");
-      } finally {
         if (!setupCompleted) {
-          setLoading(confirmBtn, false, "Confirming...", "Confirm Card");
+          setButtonState(confirmBtn, "Confirm Card", false);
         }
       }
     }
