@@ -50,6 +50,21 @@ input{width:100%;padding:12px;margin:8px 0;border-radius:12px;border:1px solid #
 <br>
 
 <div class="panel">
+<h2>🩺 Saúde do Sistema</h2>
+<table>
+<tbody>
+<tr><td>Status Geral</td><td id="sys_status">...</td></tr>
+<tr><td>Tasks 24h</td><td id="sys_tasks">0</td></tr>
+<tr><td>Falhas Runtime</td><td id="sys_fail">0</td></tr>
+<tr><td>Problemas Billing</td><td id="sys_bill">0</td></tr>
+<tr><td>Eventos Ledger</td><td id="sys_ledger">0</td></tr>
+</tbody>
+</table>
+</div>
+
+<br>
+
+<div class="panel">
 <h2>📈 Receita</h2>
 <canvas id="chart"></canvas>
 </div>
@@ -103,19 +118,24 @@ r7.innerText="$"+Number(m.revenue_7d_usd).toFixed(2);
 aa.innerText=m.active_agents;
 ex.innerText=m.external_agents;
 
-const {data:rev}=await client.rpc("cfo_revenue_daily");
+const {data:h}=await client.rpc("cfo_system_health").single();
 
+sys_status.innerText=h.system_status;
+sys_status.className =
+ h.system_status==="HEALTHY" ? "ok value" :
+ h.system_status.includes("RISK") ? "bad value" :
+ "warn value";
+
+sys_tasks.innerText=h.tasks_24h;
+sys_fail.innerText=h.tasks_failed_24h;
+sys_bill.innerText=h.billing_problems_24h;
+sys_ledger.innerText=h.ledger_events_24h;
+
+const {data:rev}=await client.rpc("cfo_revenue_daily");
 draw(rev);
 
 const {data:intel}=await client.rpc("cfo_agent_intelligence");
-
-intelTable(intel);
-
-updated.innerText="Atualizado: "+new Date().toLocaleString("pt-BR");
-}
-
-function intelTable(rows){
-intel.innerHTML=rows.map(x=>`
+intel.innerHTML=intel.map(x=>`
 <tr>
 <td>${x.name}</td>
 <td>${x.ecosystem_score}</td>
@@ -125,6 +145,8 @@ intel.innerHTML=rows.map(x=>`
 <td>${x.operational_status}</td>
 </tr>
 `).join("");
+
+updated.innerText="Atualizado: "+new Date().toLocaleString("pt-BR");
 }
 
 function draw(rows){
