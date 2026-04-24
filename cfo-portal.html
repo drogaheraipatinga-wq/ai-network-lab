@@ -17,10 +17,11 @@ body{margin:0;background:#07111f;color:#fff;font-family:Arial}
 .label{font-size:13px;color:#9fb6d3}
 table{width:100%;border-collapse:collapse}
 th,td{padding:10px;border-bottom:1px solid #23344c;text-align:left;font-size:14px}
-button{padding:12px 16px;border:0;border-radius:12px;font-weight:700;cursor:pointer}
+button{padding:12px 16px;border:0;border-radius:12px;font-weight:700;cursor:pointer;background:#38bdf8;color:#00111f}
 input{width:100%;padding:12px;margin:8px 0;border-radius:12px;border:1px solid #23344c;background:#08111f;color:#fff}
 .login{max-width:420px;margin:80px auto}
 .ok{color:#22c55e}.warn{color:#f59e0b}.bad{color:#ef4444}
+h1,h2{margin-top:0}
 </style>
 </head>
 <body>
@@ -29,6 +30,7 @@ input{width:100%;padding:12px;margin:8px 0;border-radius:12px;border:1px solid #
 
 <div id="loginBox" class="login panel">
 <h1>AI Network Lab</h1>
+<p>CFO Elite Dashboard</p>
 <input id="email" placeholder="E-mail">
 <input id="password" type="password" placeholder="Senha">
 <button onclick="login()">Entrar</button>
@@ -41,10 +43,25 @@ input{width:100%;padding:12px;margin:8px 0;border-radius:12px;border:1px solid #
 <p id="updated"></p>
 
 <div class="grid">
-<div class="card"><div class="label">Receita Hoje</div><div class="value" id="r1">$0</div></div>
-<div class="card"><div class="label">Receita 7d</div><div class="value" id="r7">$0</div></div>
-<div class="card"><div class="label">Agentes Ativos</div><div class="value" id="aa">0</div></div>
-<div class="card"><div class="label">Externos</div><div class="value" id="ex">0</div></div>
+<div class="card">
+<div class="label">Receita Hoje</div>
+<div class="value" id="r1">$0</div>
+</div>
+
+<div class="card">
+<div class="label">Receita 7 Dias</div>
+<div class="value" id="r7">$0</div>
+</div>
+
+<div class="card">
+<div class="label">Agentes Ativos</div>
+<div class="value" id="aa">0</div>
+</div>
+
+<div class="card">
+<div class="label">Agentes Externos</div>
+<div class="value" id="ex">0</div>
+</div>
 </div>
 
 <br>
@@ -100,77 +117,111 @@ const client = supabase.createClient(
 let chart;
 
 async function login(){
- const {error}=await client.auth.signInWithPassword({
-   email:email.value,password:password.value
+ const { error } = await client.auth.signInWithPassword({
+   email: document.getElementById("email").value,
+   password: document.getElementById("password").value
  });
- if(error){loginStatus.innerText=error.message;return;}
- loginBox.style.display="none";
- dash.style.display="block";
+
+ if(error){
+   document.getElementById("loginStatus").innerText = error.message;
+   return;
+ }
+
+ document.getElementById("loginBox").style.display = "none";
+ document.getElementById("dash").style.display = "block";
  load();
 }
 
 async function load(){
 
-const {data:m}=await client.rpc("cfo_dashboard_portal").single();
+const { data:m } = await client.rpc("cfo_dashboard_portal").single();
 
-r1.innerText="$"+Number(m.revenue_today_usd).toFixed(2);
-r7.innerText="$"+Number(m.revenue_7d_usd).toFixed(2);
-aa.innerText=m.active_agents;
-ex.innerText=m.external_agents;
+document.getElementById("r1").innerText = "$" + Number(m.revenue_today_usd).toFixed(2);
+document.getElementById("r7").innerText = "$" + Number(m.revenue_7d_usd).toFixed(2);
+document.getElementById("aa").innerText = m.active_agents;
+document.getElementById("ex").innerText = m.external_agents;
 
-const {data:h}=await client.rpc("cfo_system_health").single();
+/* System Health */
+const { data:h } = await client.rpc("cfo_system_health").single();
 
-sys_status.innerText=h.system_status;
-sys_status.className =
- h.system_status==="HEALTHY" ? "ok value" :
- h.system_status.includes("RISK") ? "bad value" :
- "warn value";
+document.getElementById("sys_status").innerText = h.system_status;
+document.getElementById("sys_tasks").innerText = h.tasks_24h;
+document.getElementById("sys_fail").innerText = h.tasks_failed_24h;
+document.getElementById("sys_bill").innerText = h.billing_problems_24h;
+document.getElementById("sys_ledger").innerText = h.ledger_events_24h;
 
-sys_tasks.innerText=h.tasks_24h;
-sys_fail.innerText=h.tasks_failed_24h;
-sys_bill.innerText=h.billing_problems_24h;
-sys_ledger.innerText=h.ledger_events_24h;
+/* Revenue Chart */
+const { data:rev } = await client.rpc("cfo_revenue_daily");
+drawChart(rev);
 
-const {data:rev}=await client.rpc("cfo_revenue_daily");
-draw(rev);
+/* Agent Intelligence */
+const { data:intelligenceRows, error:intelligenceError } =
+await client.rpc("cfo_agent_intelligence");
 
-const {data:intel}=await client.rpc("cfo_agent_intelligence");
-intel.innerHTML=intel.map(x=>`
+if(intelligenceError){
+ document.getElementById("intel").innerHTML =
+ `<tr><td colspan="6">Erro ao carregar dados</td></tr>`;
+}else{
+ document.getElementById("intel").innerHTML =
+ intelligenceRows.map(x => `
 <tr>
 <td>${x.name}</td>
-<td>${x.ecosystem_score}</td>
+<td>${Number(x.ecosystem_score).toFixed(1)}</td>
 <td>${x.tasks_24h}</td>
 <td>${x.credits_spent_24h}</td>
 <td>$${Number(x.revenue_usd).toFixed(2)}</td>
 <td>${x.operational_status}</td>
 </tr>
 `).join("");
-
-updated.innerText="Atualizado: "+new Date().toLocaleString("pt-BR");
 }
 
-function draw(rows){
-const labels=rows.map(x=>new Date(x.day).toLocaleDateString("pt-BR"));
-const vals=rows.map(x=>x.revenue_usd);
+document.getElementById("updated").innerText =
+"Atualizado: " + new Date().toLocaleString("pt-BR");
+}
+
+function drawChart(rows){
+
+const labels = rows.map(x =>
+ new Date(x.day).toLocaleDateString("pt-BR")
+);
+
+const vals = rows.map(x => x.revenue_usd);
 
 if(chart) chart.destroy();
 
-chart=new Chart(document.getElementById("chart"),{
-type:"bar",
-data:{labels:labels,datasets:[{label:"USD",data:vals}]},
-options:{plugins:{legend:{labels:{color:"#fff"}}}}
+chart = new Chart(document.getElementById("chart"),{
+ type:"bar",
+ data:{
+   labels:labels,
+   datasets:[{
+     label:"USD",
+     data:vals
+   }]
+ },
+ options:{
+   plugins:{
+     legend:{
+       labels:{color:"#fff"}
+     }
+   }
+ }
 });
 }
 
 client.auth.getSession().then(({data})=>{
  if(data.session){
-   loginBox.style.display="none";
-   dash.style.display="block";
+   document.getElementById("loginBox").style.display="none";
+   document.getElementById("dash").style.display="block";
    load();
  }
 });
 
-setInterval(()=>{if(dash.style.display!="none")load()},20000);
+setInterval(()=>{
+ if(document.getElementById("dash").style.display!="none"){
+   load();
+ }
+},20000);
 </script>
+
 </body>
 </html>
